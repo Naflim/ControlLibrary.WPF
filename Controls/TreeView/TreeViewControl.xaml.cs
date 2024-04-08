@@ -27,6 +27,27 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
         HasSelection,
     }
 
+    /// <summary>
+    /// 搜索模式
+    /// </summary>
+    public enum SearchMode
+    {
+        /// <summary>
+        /// 节点搜索
+        /// </summary>
+        /// <remarks>
+        /// 将树的所有节点当作单一节点看待，仅搜索出符合条件的节点
+        /// </remarks>
+        NodeSearch,
+
+        /// <summary>
+        /// 文件夹搜索
+        /// </summary>
+        /// <remarks>
+        /// 将树的所有节点当作文件资源管理器看待，匹配的节点是文件夹将展示文件夹下所有节点
+        /// </remarks>
+        FolderSearch,
+    }
 
     /// <summary>
     /// TreeViewControl.xaml 的交互逻辑
@@ -86,6 +107,15 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
                                         new PropertyMetadata(MultipleSelectionMode.AllSelection));
 
         /// <summary>
+        /// 搜索模式依赖属性
+        /// </summary>
+        public static readonly DependencyProperty SearchModeProperty =
+            DependencyProperty.Register(nameof(SearchMode),
+                                        typeof(SearchMode),
+                                        typeof(TreeViewControl),
+                                        new PropertyMetadata(SearchMode.NodeSearch));
+
+        /// <summary>
         /// 显示图像依赖属性
         /// </summary>
         public static readonly DependencyProperty ShowImageProperty =
@@ -104,7 +134,7 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
                                         new PropertyMetadata(false));
 
         /// <summary>
-        /// 显示搜索面板依赖属性
+        /// 搜索文本依赖属性
         /// </summary>
         public static readonly DependencyProperty SearchTextProperty =
             DependencyProperty.Register(nameof(SearchText),
@@ -174,6 +204,16 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
         }
 
         /// <summary>
+        /// 搜索模式
+        /// </summary>
+        public SearchMode SearchMode
+        {
+            get => (SearchMode)GetValue(SearchModeProperty);
+
+            set => SetValue(SearchModeProperty, value);
+        }
+
+        /// <summary>
         /// 显示多选框
         /// </summary>
         public bool ShowCheckBox
@@ -227,24 +267,15 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
             }
             else
             {
-                List<TreeViewModel> itemsSource = new List<TreeViewModel>();
-                foreach (var item in ItemsSource)
+                switch (SearchMode)
                 {
-                    TreeViewModel root = new TreeViewModel(item, false);
-                    FilterTree(root, item.ChildNodes, n => n.Title.Contains(newValue));
-
-                    if (root.Title.Contains(newValue))
-                    {
-                        itemsSource.Add(root);
-                    }
-                    else
-                    {
-                        itemsSource.AddRange(root.ChildItems);
-                    }
+                    case SearchMode.NodeSearch:
+                        NodeSearch(newValue);
+                        break;
+                    case SearchMode.FolderSearch:
+                        FolderSearch(newValue);
+                        break;
                 }
-
-                tree.ItemsSource = itemsSource;
-                LordSelectedItem(SelectedItem);
             }
 
             foreach (var item in ItemsSource)
@@ -269,6 +300,115 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
                     }
                 });
             }
+        }
+
+        private void NodeSearch(string newValue)
+        {
+            List<TreeViewModel> itemsSource = new List<TreeViewModel>();
+            foreach (var item in ItemsSource)
+            {
+                TreeViewModel root = new TreeViewModel(item, false);
+                NodeSearch(root, item.ChildNodes, n => n.Title.Contains(newValue));
+
+                if (root.Title.Contains(newValue))
+                {
+                    itemsSource.Add(root);
+                }
+                else
+                {
+                    itemsSource.AddRange(root.ChildItems);
+                }
+            }
+
+            tree.ItemsSource = itemsSource;
+            LordSelectedItem(SelectedItem);
+        }
+
+        private void NodeSearch(TreeViewModel root, IEnumerable<ITreeViewModel> nodes, Func<ITreeViewModel, bool> condition)
+        {
+            if ((nodes == null) || !nodes.Any())
+            {
+                return;
+            }
+
+            Dictionary<TreeViewModel, List<ITreeViewModel>> groups = new Dictionary<TreeViewModel, List<ITreeViewModel>>();
+            groups[root] = new List<ITreeViewModel>();
+            foreach (var node in nodes)
+            {
+                if (condition(node))
+                {
+                    TreeViewModel viewModel = new TreeViewModel(node, false);
+                    root.ChildItems.Add(viewModel);
+
+                    if (condition(root))
+                        viewModel.ParentItem = root;
+                    if (node.ChildNodes != null)
+                    {
+                        groups[viewModel] = node.ChildNodes.ToList();
+                    }
+                }
+                else
+                {
+                    if (node.ChildNodes != null)
+                    {
+                        groups[root].AddRange(node.ChildNodes);
+                    }
+                }
+            }
+
+            foreach (var item in groups)
+            {
+                if (item.Value.Count > 0)
+                {
+                    NodeSearch(item.Key, item.Value, condition);
+                }
+            }
+        }
+
+        private void FolderSearch(string newValue)
+        {
+            List<TreeViewModel> itemsSource = new List<TreeViewModel>();
+            foreach (var item in ItemsSource)
+            {
+                if (item.Title.Contains(newValue))
+                {
+                    TreeViewModel root = new TreeViewModel(item, true);
+                    itemsSource.Add(root);
+                }
+                else
+                {
+                    var roots = FolderSearch(item.ChildNodes, n => n.Title.Contains(newValue));
+                    itemsSource.AddRange(roots);
+                }
+            }
+
+            tree.ItemsSource = itemsSource;
+            LordSelectedItem(SelectedItem);
+        }
+
+        private List<TreeViewModel> FolderSearch(IEnumerable<ITreeViewModel> nodes, Func<ITreeViewModel, bool> condition)
+        {
+            if ((nodes == null) || !nodes.Any())
+            {
+                return new List<TreeViewModel>();
+            }
+
+            List<TreeViewModel> result = new List<TreeViewModel>();
+            foreach (var node in nodes)
+            {
+                if (condition(node))
+                {
+                    TreeViewModel viewModel = new TreeViewModel(node, true);
+                    result.Add(viewModel);
+                }
+                else
+                {
+                    var list = FolderSearch(node.ChildNodes, condition);
+                    result.AddRange(list);
+                }
+            }
+
+            return result;
         }
 
         private void CheckBox_Checked(object sender, RoutedEventArgs e)
@@ -372,46 +512,6 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
             path.Reverse();
 
             return path;
-        }
-
-        private void FilterTree(TreeViewModel root, IEnumerable<ITreeViewModel> nodes, Func<ITreeViewModel, bool> condition)
-        {
-            if ((nodes == null) || !nodes.Any())
-            {
-                return;
-            }
-
-            Dictionary<TreeViewModel, List<ITreeViewModel>> groups = new Dictionary<TreeViewModel, List<ITreeViewModel>>();
-            groups[root] = new List<ITreeViewModel>();
-            foreach (var node in nodes)
-            {
-                if (condition(node))
-                {
-                    TreeViewModel viewModel = new TreeViewModel(node, false);
-                    root.ChildItems.Add(viewModel);
-                    if (condition(root))
-                        viewModel.ParentItem = root;
-                    if (node.ChildNodes != null)
-                    {
-                        groups[viewModel] = node.ChildNodes.ToList();
-                    }
-                }
-                else
-                {
-                    if (node.ChildNodes != null)
-                    {
-                        groups[root].AddRange(node.ChildNodes);
-                    }
-                }
-            }
-
-            foreach (var item in groups)
-            {
-                if (item.Value.Count > 0)
-                {
-                    FilterTree(item.Key, item.Value, condition);
-                }
-            }
         }
 
         private void CheckEdit_EditValueChanged(object sender, bool? value)

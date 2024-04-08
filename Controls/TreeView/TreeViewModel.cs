@@ -31,23 +31,37 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
         /// 构造函数
         /// </summary>
         /// <param name="viewModel">树型构件视图模型</param>
-        /// <param name="isAll">是否全部继承</param>
-        internal TreeViewModel(ITreeViewModel viewModel, bool isAll = true)
+        /// <param name="hasChildItems">是否继承子节点</param>
+        internal TreeViewModel(ITreeViewModel viewModel, bool hasChildItems)
         {
             Title = viewModel.Title;
             IsChecked = viewModel.IsChecked;
             IsExpanded = viewModel.IsExpanded;
             ImageSource = viewModel.ImageSource;
             ViewModel = viewModel;
-            if (isAll)
-            {
-                ParentNode = viewModel.ParentNode;
-                ChildNodes = viewModel.ChildNodes;
-            }
+
+            if (hasChildItems && viewModel.ChildNodes != null)
+                ChildItems = viewModel.ChildNodes.Select(n => new TreeViewModel(n, this)).ToList();
             else
-            {
                 ChildItems = new List<TreeViewModel>();
-            }
+        }
+
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="viewModel">树型构件视图模型</param>
+        /// <param name="parentItem">父项</param>
+        private TreeViewModel(ITreeViewModel viewModel, TreeViewModel parentItem)
+        {
+            Title = viewModel.Title;
+            IsChecked = viewModel.IsChecked;
+            IsExpanded = viewModel.IsExpanded;
+            ImageSource = viewModel.ImageSource;
+            ViewModel = viewModel;
+            ParentItem = parentItem;
+
+            if (viewModel.ChildNodes != null)
+                ChildItems = viewModel.ChildNodes.Select(n => new TreeViewModel(n, this)).ToList();
         }
 
         /// <summary>
