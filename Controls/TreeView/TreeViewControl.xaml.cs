@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace Naflim.ControlLibrary.WPF.Controls.TreeView
@@ -47,6 +48,14 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
         /// 将树的所有节点当作文件资源管理器看待，匹配的节点是文件夹将展示文件夹下所有节点
         /// </remarks>
         FolderSearch,
+
+        /// <summary>
+        /// 叶子节点搜索
+        /// </summary>
+        /// <remarks>
+        /// 仅搜索叶子节点，匹配的节点将展示其父节点直到根节点
+        /// </remarks>
+        LeafNodeSearch
     }
 
     /// <summary>
@@ -141,6 +150,15 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
                                         typeof(string),
                                         typeof(TreeViewControl),
                                         new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+
+        /// <summary>
+        /// 是否为主动搜索依赖属性
+        /// </summary>
+        public static readonly DependencyProperty IsActiveSearchProperty =
+            DependencyProperty.Register(nameof(IsActiveSearch),
+                                        typeof(bool),
+                                        typeof(TreeViewControl),
+                                        new PropertyMetadata(false));
 
         public TreeViewControl()
         {
@@ -253,8 +271,24 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
             set => SetValue(SearchTextProperty, value);
         }
 
+        /// <summary>
+        /// 是否为主动搜索
+        /// </summary>
+        /// <remarks>
+        /// 主动搜索时每次输入搜索内容都会立即进行搜索，非主动搜索时需要按下回车键才会进行搜索
+        /// </remarks>
+        public bool IsActiveSearch
+        {
+            get => (bool)GetValue(IsActiveSearchProperty);
+
+            set => SetValue(IsActiveSearchProperty, value);
+        }
+
         private void SearchPanel_TextChanged(object sender, TextChangedEventArgs e)
         {
+            if (!IsActiveSearch)
+                return;
+
             string newValue = searchPanel.Text;
             if (string.IsNullOrEmpty(newValue))
             {
@@ -274,6 +308,9 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
                         break;
                     case SearchMode.FolderSearch:
                         FolderSearch(newValue);
+                        break;
+                    case SearchMode.LeafNodeSearch:
+                        LeafNodeSearch(newValue);
                         break;
                 }
             }
@@ -302,6 +339,68 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
             }
         }
 
+        private void SearchPanel_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if(IsActiveSearch)
+                return;
+
+            // 判断是否按下回车键（兼容普通回车和小键盘回车）
+            if (e.Key == Key.Enter || e.Key == Key.Return)
+            {
+                // 阻止回车的默认行为（避免文本框换行）
+                e.Handled = true;
+
+                string newValue = searchPanel.Text;
+                if (string.IsNullOrEmpty(newValue))
+                {
+                    Binding binding = new Binding(nameof(ItemsSource))
+                    {
+                        Source = this,
+                    };
+                    tree.SetBinding(ItemsControl.ItemsSourceProperty, binding);
+                    LordSelectedItem(SelectedItem);
+                }
+                else
+                {
+                    switch (SearchMode)
+                    {
+                        case SearchMode.NodeSearch:
+                            NodeSearch(newValue);
+                            break;
+                        case SearchMode.FolderSearch:
+                            FolderSearch(newValue);
+                            break;
+                        case SearchMode.LeafNodeSearch:
+                            LeafNodeSearch(newValue);
+                            break;
+                    }
+                }
+
+                foreach (var item in ItemsSource)
+                {
+                    Tree<ITreeViewModel> tree = new Tree<ITreeViewModel>(item, v => v.ChildNodes);
+                    tree.Root.PostorderTraversal(n =>
+                    {
+                        if ((n.ChildNodes != null) && n.ChildNodes.Any())
+                        {
+                            if (n.ChildNodes.All(v => v.IsChecked == true))
+                            {
+                                n.IsChecked = true;
+                            }
+                            else if (n.ChildNodes.All(v => v.IsChecked == false))
+                            {
+                                n.IsChecked = false;
+                            }
+                            else
+                            {
+                                n.IsChecked = null;
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
         private void NodeSearch(string newValue)
         {
             List<TreeViewModel> itemsSource = new List<TreeViewModel>();
@@ -324,7 +423,7 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
             LordSelectedItem(SelectedItem);
         }
 
-        private void NodeSearch(TreeViewModel root, IEnumerable<ITreeViewModel> nodes, Func<ITreeViewModel, bool> condition)
+        private static void NodeSearch(TreeViewModel root, IEnumerable<ITreeViewModel> nodes, Func<ITreeViewModel, bool> condition)
         {
             if ((nodes == null) || !nodes.Any())
             {
@@ -386,7 +485,7 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
             LordSelectedItem(SelectedItem);
         }
 
-        private List<TreeViewModel> FolderSearch(IEnumerable<ITreeViewModel> nodes, Func<ITreeViewModel, bool> condition)
+        private static List<TreeViewModel> FolderSearch(IEnumerable<ITreeViewModel> nodes, Func<ITreeViewModel, bool> condition)
         {
             if ((nodes == null) || !nodes.Any())
             {
@@ -409,6 +508,52 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
             }
 
             return result;
+        }
+
+        private void LeafNodeSearch(string newValue)
+        {
+            List<TreeViewModel> itemsSource = new List<TreeViewModel>();
+            foreach (var item in ItemsSource)
+            {
+                TreeViewModel root = new TreeViewModel(item, true);
+                LeafNodeSearch(root.ChildItems, n => n.Title.Contains(newValue));
+                if(root.ChildItems.Count > 0)
+                {
+                    itemsSource.Add(root);
+                }
+            }
+
+            tree.ItemsSource = itemsSource;
+            LordSelectedItem(SelectedItem);
+        }
+
+        private static void LeafNodeSearch(List<TreeViewModel> nodes, Func<ITreeViewModel, bool> condition)
+        {
+            List<TreeViewModel> removeNodes = new List<TreeViewModel>();
+
+            foreach (var node in nodes)
+            {
+                if(node.ChildItems.Count > 0)
+                {
+                    LeafNodeSearch(node.ChildItems, condition);
+                    if (node.ChildItems.Count == 0)
+                    {
+                        removeNodes.Add(node);
+                    }
+                }
+                else
+                {
+                    if (!condition(node))
+                    {
+                        removeNodes.Add(node);
+                    }
+                }
+            }
+
+            foreach (var item in removeNodes)
+            {
+                nodes.Remove(item);
+            }
         }
 
         private void CheckBox_Checked(object sender, RoutedEventArgs e)

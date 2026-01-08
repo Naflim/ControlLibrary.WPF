@@ -21,7 +21,8 @@
         <TextBox  Grid.Row="0" Name="searchPanel" Height="23" VerticalAlignment="Center" 
                   Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
                   Visibility="{Binding ShowSearchPanel, ElementName=baseControl,Converter={StaticResource BooleanToVisibilityConverter}}"
-                  TextChanged="SearchPanel_TextChanged">
+                  TextChanged="SearchPanel_TextChanged"
+                  KeyDown="SearchPanel_KeyDown">
             <TextBox.Resources>
                 <VisualBrush x:Key="HelpBrush" TileMode="None" Opacity="0.3" Stretch="None" AlignmentX="Left">
                     <VisualBrush.Visual>
