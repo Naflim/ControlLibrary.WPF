@@ -663,10 +663,11 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
             }
 
             container.ApplyTemplate();
-            ItemsPresenter? itemsPresenter = null;
+            ItemsPresenter? itemsPresenter;
             if (container.Template.FindName("ItemsHost", container) is ItemsPresenter presenter)
             {
                 presenter.ApplyTemplate();
+                itemsPresenter = presenter;
             }
             else
             {
@@ -738,10 +739,11 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
 
             container.ApplyTemplate();
 
-            ItemsPresenter? itemsPresenter = null;
+            ItemsPresenter? itemsPresenter;
             if (container.Template.FindName("ItemsHost", container) is ItemsPresenter presenter)
             {
                 presenter.ApplyTemplate();
+                itemsPresenter = presenter;
             }
             else
             {
