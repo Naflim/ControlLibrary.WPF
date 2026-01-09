@@ -7,8 +7,14 @@
              xmlns:convert="clr-namespace:Naflim.ControlLibrary.WPF.Converters"
              mc:Ignorable="d" Name="baseControl" MinWidth="100" Loaded="UserControl_Loaded">
     <UserControl.Resources>
-        <convert:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
-        <convert:BooleanToDoubleConverter x:Key="BooleanToDoubleConverter" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Naflim.ControlLibrary.WPF;component/Styles/TreeViewStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <convert:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <convert:BooleanToDoubleConverter x:Key="BooleanToDoubleConverter" />
+        </ResourceDictionary>
     </UserControl.Resources>
     
     <Grid>
@@ -46,12 +52,8 @@
         <TreeView Grid.Row="1" ItemsSource="{Binding ItemsSource, ElementName=baseControl}" Name="tree"
                   VirtualizingStackPanel.IsVirtualizing ="True"
                   SelectedItemChanged="Tree_SelectedItemChanged"
+                  ItemContainerStyle="{StaticResource Styles.TreeViewItem.WPF}"
                   MaxHeight="{Binding ActualHeight,RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}">
-            <TreeView.ItemContainerStyle>
-                <Style TargetType="{x:Type TreeViewItem}">
-                    <Setter Property="IsExpanded" Value="{Binding DataContext.IsExpanded, RelativeSource={RelativeSource Self}}" />
-                </Style>
-            </TreeView.ItemContainerStyle>
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding ChildNodes}">
                     <StackPanel Orientation="Horizontal">

@@ -11,4 +11,10 @@
     <PackageReference Include="Naflim.DevelopmentKit" Version="1.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Page Update="Styles\TreeViewStyles.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Page>
+  </ItemGroup>
+
 </Project>

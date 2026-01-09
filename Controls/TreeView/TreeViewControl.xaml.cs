@@ -59,10 +59,42 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
     }
 
     /// <summary>
+    /// 树视图样式
+    /// </summary>
+    public enum TreeViewStyle
+    {
+        /// <summary>
+        /// 默认样式
+        /// </summary>
+        WPF,
+
+        /// <summary>
+        /// 仿WinForms样式 
+        /// </summary>
+        WinForms
+    }
+
+    /// <summary>
     /// TreeViewControl.xaml 的交互逻辑
     /// </summary>
     public partial class TreeViewControl : UserControl
     {
+        /// <summary>
+        /// 选中项依赖属性
+        /// </summary>
+        public static readonly DependencyProperty TreeViewStyleProperty =
+            DependencyProperty.Register(nameof(TreeViewStyle),
+                                        typeof(TreeViewStyle),
+                                        typeof(TreeViewControl),
+                                        new FrameworkPropertyMetadata(TreeViewStyle.WPF, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, e) =>
+                                        {
+                                            if (e.NewValue is not TreeViewStyle style)
+                                                return;
+
+                                            TreeViewControl control = (TreeViewControl)d;
+                                            control.SetStyle(style);
+                                        }));
+
         /// <summary>
         /// 数据源依赖属性
         /// </summary>
@@ -174,6 +206,19 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
         ///  发生时选中项集合更改。
         /// </summary>
         public event RoutedPropertyChangedEventHandler<IList<ITreeViewModel>>? SelectedItemsChanged;
+
+        /// <summary>
+        /// 树视图样式
+        /// </summary>
+        public TreeViewStyle TreeViewStyle
+        {
+            get => (TreeViewStyle)GetValue(TreeViewStyleProperty);
+
+            set
+            {
+                SetValue(TreeViewStyleProperty, value);
+            }
+        }
 
         /// <summary>
         /// 数据源
@@ -341,7 +386,7 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
 
         private void SearchPanel_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if(IsActiveSearch)
+            if (IsActiveSearch)
                 return;
 
             // 判断是否按下回车键（兼容普通回车和小键盘回车）
@@ -517,7 +562,7 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
             {
                 TreeViewModel root = new TreeViewModel(item, true);
                 LeafNodeSearch(root.ChildItems, n => n.Title.Contains(newValue));
-                if(root.ChildItems.Count > 0)
+                if (root.ChildItems.Count > 0)
                 {
                     itemsSource.Add(root);
                 }
@@ -533,7 +578,7 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
 
             foreach (var node in nodes)
             {
-                if(node.ChildItems.Count > 0)
+                if (node.ChildItems.Count > 0)
                 {
                     LeafNodeSearch(node.ChildItems, condition);
                     if (node.ChildItems.Count == 0)
@@ -564,6 +609,16 @@ namespace Naflim.ControlLibrary.WPF.Controls.TreeView
         private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             CheckEdit_EditValueChanged(sender, false);
+        }
+
+        private void SetStyle(TreeViewStyle style)
+        {
+            Style treeViewItemStyle = style switch
+            {
+                TreeViewStyle.WinForms => (Style)Resources["Styles.TreeViewItem.WinForm"],
+                _ => (Style)Resources["Styles.TreeViewItem.WPF"],
+            };
+            tree.ItemContainerStyle = treeViewItemStyle;
         }
 
         private void LordSelectedItem(ITreeViewModel selectedItem)
